@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # QPaper Hub
 
 QPaper Hub is a simple, responsive previous-year question paper repository for students and academic administrators. Students can search and filter papers, preview PDFs, download papers, save papers for later, and manage their profile. Administrators can upload, edit, and delete papers, view users, and monitor library statistics.
@@ -143,3 +144,6 @@ Add screenshots of the landing page, paper browsing, paper preview, and admin da
 - Add department/subject management and CSV import.
 - Add more robust PDF content validation and malware scanning for production deployments.
 - Add accessibility audits and end-to-end browser tests.
+=======
+# qpaper-hub
+>>>>>>> 58ac32190a5adf5d82c9ebd69676e429c34050ab
