@@ -1,0 +1,7 @@
+import {Link,NavLink,useNavigate} from 'react-router-dom';
+import {BookOpen,LayoutDashboard,Bookmark,UserRound,LogOut,PlusCircle,LibraryBig} from 'lucide-react';
+import {useAuth} from '../context/AuthContext';
+export default function Layout({children}){
+ const {user,logout}=useAuth(); const navigate=useNavigate();
+ return <div className="app-shell"><header className="topbar"><Link to="/" className="brand"><span className="brand-mark"><BookOpen size={21}/></span><span>QPaper<span className="brand-light"> Hub</span></span></Link><nav className="nav-links"><NavLink to="/papers">Browse papers</NavLink>{user&&<NavLink to="/saved">Saved</NavLink>}{user?.role==='admin'&&<NavLink to="/admin">Admin</NavLink>}</nav><div className="nav-actions">{user?<><Link className="profile-chip" to="/profile"><span className="avatar">{user.name?.[0]?.toUpperCase()}</span><span className="profile-name">{user.name.split(' ')[0]}</span></Link><button className="icon-button" title="Log out" onClick={()=>{logout();navigate('/')}}><LogOut size={18}/></button></>:<><Link className="login-link" to="/login">Log in</Link><Link className="btn btn-primary nav-cta" to="/register">Create account</Link></>}</div></header><main>{children}</main><footer className="footer"><div className="brand"><span className="brand-mark"><BookOpen size={18}/></span>QPaper Hub</div><span>Made for focused study. Shared for student success.</span></footer></div>
+}
