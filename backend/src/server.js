@@ -2,37 +2,52 @@
 require('dotenv').config();
 
 if (!process.env.JWT_SECRET) {
-  console.error('JWT_SECRET is required. Copy .env.example to .env and set a secret.');
+  console.error('JWT_SECRET is required. Set it in your environment.');
+  process.exit(1);
+}
+
+if (!process.env.DATABASE_URL) {
+  console.error('DATABASE_URL is required. Set it in your environment.');
+  process.exit(1);
+}
+
+if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  console.error(
+    'SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required.'
+  );
   process.exit(1);
 }
 
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
-const path = require('path');
 
+const db = require('./db/database');
 const authRoutes = require('./routes/auth');
 const paperRoutes = require('./routes/papers');
 const adminRoutes = require('./routes/admin');
 const { notFound, errorHandler } = require('./middleware/errors');
+const { authenticate } = require('./middleware/auth');
 
-// Initialize Express BEFORE using app.use()
 const app = express();
 
 // Security headers and PDF preview permissions
-
 app.use(
   helmet({
     contentSecurityPolicy: {
       directives: {
         ...helmet.contentSecurityPolicy.getDefaultDirectives(),
-        'frame-ancestors': ["'self'", 'http://localhost:5173'],
+        'frame-ancestors': [
+  "'self'",
+  ...(process.env.CORS_ORIGIN
+    ? process.env.CORS_ORIGIN.split(',').map(s => s.trim())
+    : ['http://localhost:5173']),
+],
       },
     },
     crossOriginResourcePolicy: { policy: 'cross-origin' },
   })
 );
-
 
 // CORS configuration
 app.use(
@@ -46,11 +61,23 @@ app.use(
 app.use(express.json({ limit: '1mb' }));
 
 // Health check
-app.get('/api/health', (req, res) => {
-  res.json({
-    success: true,
-    message: 'QPaper Hub API is running.',
-  });
+app.get('/api/health', async (req, res) => {
+  try {
+    await db.query('SELECT 1');
+
+    res.json({
+      success: true,
+      message: 'QPaper Hub API is running.',
+      database: 'connected',
+    });
+  } catch (err) {
+    console.error('Health check database error:', err.message);
+
+    res.status(503).json({
+      success: false,
+      message: 'API is running, but the database is unavailable.',
+    });
+  }
 });
 
 // Authentication routes
@@ -58,24 +85,26 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', authRoutes);
 
 // Saved papers
-app.get(
-  '/api/saved',
-  require('./middleware/auth').authenticate,
-  (req, res) => {
-    const db = require('./db/database');
+app.get('/api/saved', authenticate, async (req, res, next) => {
+  try {
+    const result = await db.query(
+      `SELECT p.*, u.name AS uploader_name
+       FROM papers p
+       LEFT JOIN users u ON u.id = p.uploaded_by
+       JOIN saved_papers s ON s.paper_id = p.id
+       WHERE s.user_id = $1
+       ORDER BY s.created_at DESC`,
+      [req.user.id]
+    );
 
-    const papers = db.prepare(`
-      SELECT p.*, u.name AS uploader_name
-      FROM papers p
-      LEFT JOIN users u ON u.id = p.uploaded_by
-      JOIN saved_papers s ON s.paper_id = p.id
-      WHERE s.user_id = ?
-      ORDER BY s.created_at DESC
-    `).all(req.user.id);
-
-    res.json({ success: true, papers });
+    res.json({
+      success: true,
+      papers: result.rows,
+    });
+  } catch (err) {
+    next(err);
   }
-);
+});
 
 // Question paper routes
 app.use('/api/papers', paperRoutes);
